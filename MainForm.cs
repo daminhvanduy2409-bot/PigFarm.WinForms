@@ -35,6 +35,10 @@ namespace PigFarm.WinForms
 
         // ── Grid + Charts ────────────────────────────────────────
         private DataGridView dgvBatches = null!;
+        private ComboBox cboBatchStatus = null!;
+        private ComboBox cboBatchCode = null!;
+        private string currentBatchCode = "All";
+        private string currentBatchStatus = "Active";
         private ChartPanel chartFeed = null!;
         private ChartPanel chartGrowth = null!;
 
@@ -53,13 +57,14 @@ namespace PigFarm.WinForms
         internal static readonly Color ColTeal = Color.FromArgb(26, 188, 156);
 
         // ── Sidebar width at 96 DPI ──────────────────────────────
-        private const int SidebarBaseW = 200;
+        private const int SidebarBaseW = 220;
 
         public MainForm()
         {
             Text = "PigFarm Pro — Dashboard";
             MinimumSize = new Size(1024, 640);
             StartPosition = FormStartPosition.CenterScreen;
+            WindowState = FormWindowState.Maximized;
             BackColor = ColBg;
             Font = new Font("Segoe UI", 9f);
             DoubleBuffered = true;
@@ -70,7 +75,6 @@ namespace PigFarm.WinForms
             BuildLayout();
 
             // Set kích thước SAU khi layout xong để StartPosition hoạt động
-            ClientSize = new Size(1280, 780);
 
             LoadDashboard();
 
@@ -84,10 +88,13 @@ namespace PigFarm.WinForms
         // ════════════════════════════════════════════════════════
         private void BuildLayout()
         {
-            // Thứ tự Add quan trọng: Sidebar → TopBar → Content
-            BuildSidebar();
-            BuildTopBar();
+            SuspendLayout();
+
             BuildContentArea();
+            BuildTopBar();
+            BuildSidebar();
+
+            ResumeLayout(true);
         }
 
         // ── Sidebar ──────────────────────────────────────────────
@@ -129,7 +136,7 @@ namespace PigFarm.WinForms
             };
 
             navDashboard = new NavButton("⊞ Dashboard");
-            navBatch = new NavButton("☰ Batch");
+            navBatch = new NavButton("☰ Băng heo");
             navFeed = new NavButton("🌾 Nhập Cám");
             navMovement = new NavButton("⇄ Biến Động");
             navSnapshot = new NavButton("⚖ Cân Đàn");
@@ -161,7 +168,7 @@ namespace PigFarm.WinForms
             pnlTopBar = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 52,
+                Height = 100,
                 BackColor = ColTopbar
             };
             pnlTopBar.Paint += (s, e) =>
@@ -171,9 +178,9 @@ namespace PigFarm.WinForms
             var lblTitle = new Label
             {
                 Text = "Dashboard",
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 20f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(40, 40, 40),
-                Location = new Point(16, 12),
+                Location = new Point(10, 12),
                 AutoSize = true
             };
 
@@ -236,15 +243,16 @@ namespace PigFarm.WinForms
             pnlKpiCards = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 118,
+                Height = 500,
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
+                WrapContents = true,
                 BackColor = Color.Transparent,
                 Padding = new Padding(0),
-                AutoSize = false
+                AutoSize = false,
+                AutoScroll = false
             };
 
-            cardBatches = new KpiCard("Batch Active", "--", "trang trại", ColAccent);
+            cardBatches = new KpiCard("Băng Heo Đang Nuôi", "--", "Băng Heo", ColAccent);
             cardPigs = new KpiCard("Tổng Đầu Con", "--", "con", ColGreen);
             cardFeed = new KpiCard("Cám Tháng Này", "--", "kg", ColOrange);
             cardFcr = new KpiCard("FCR Trung Bình", "--", "kg cám/kg tăng", ColPurple);
@@ -264,7 +272,7 @@ namespace PigFarm.WinForms
             pnlCharts = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 200,
+                Height = 500,
                 ColumnCount = 2,
                 RowCount = 1,
                 BackColor = Color.Transparent,
@@ -275,8 +283,17 @@ namespace PigFarm.WinForms
             pnlCharts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             pnlCharts.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            chartFeed = new ChartPanel("📈 Cám 30 Ngày Gần Nhất", ColOrange) { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 6, 0) };
-            chartGrowth = new ChartPanel("📈 Tăng Trưởng Đàn (Batch Active nhất)", ColGreen) { Dock = DockStyle.Fill, Margin = new Padding(6, 0, 0, 0) };
+            chartFeed = new ChartPanel("📈 Cám 30 Ngày Gần Nhất", ColOrange)
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(8)
+            };
+
+            chartGrowth = new ChartPanel("📈 Tăng Trưởng Đàn (Batch Active nhất)", ColGreen)
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(8)
+            };
 
             pnlCharts.Controls.Add(chartFeed, 0, 0);
             pnlCharts.Controls.Add(chartGrowth, 1, 0);
@@ -293,28 +310,94 @@ namespace PigFarm.WinForms
             };
             pnlBatchGrid.Paint += PaintCard;
 
+            var gridHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 56,
+                BackColor = Color.White,
+                Padding = new Padding(10, 8, 10, 4)
+            };
+
             var lblGrid = new Label
             {
-                Text = "BATCH ĐANG NUÔI",
+                Text = "DANH SÁCH BĂNG HEO",
                 Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(50, 50, 50),
-                Location = new Point(16, 12),
-                AutoSize = true
+                AutoSize = true,
+                Location = new Point(10, 15)
             };
+
+            var lblFilter = new Label
+            {
+                Text = "Trạng thái:",
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = Color.FromArgb(70, 70, 70),
+                AutoSize = true,
+                Location = new Point(190, 18)
+            };
+
+            var lblStatus = new Label
+            {
+                Text = "Trạng thái:",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(350, 18)
+            };
+
+            gridHeader.Controls.Add(lblStatus);
+            cboBatchStatus = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9f),
+                Width = 180,
+                Height = 32,
+                Location = new Point(500, 14)
+            };
+            var lblBatch = new Label
+            {
+                Text = "Băng heo:",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(700, 18)
+            };
+
+            gridHeader.Controls.Add(lblBatch);
+            cboBatchCode = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9f),
+                Width = 180,
+                Height = 32,
+                Location = new Point(850, 14)
+            };
+
+            cboBatchCode.SelectedIndexChanged += CboBatchCode_SelectedIndexChanged;
+
+            cboBatchStatus.Items.AddRange(new object[] { "Active", "Closed", "All" });
+            cboBatchStatus.SelectedItem = "Active";
+            cboBatchStatus.SelectedIndexChanged += (s, e) =>
+            {
+                currentBatchStatus = cboBatchStatus.SelectedItem?.ToString() ?? "Active";
+                LoadDashboard();
+            };
+
+            gridHeader.Controls.Add(lblGrid);
+            gridHeader.Controls.Add(lblFilter);
+            gridHeader.Controls.Add(cboBatchStatus);
+            gridHeader.Controls.Add(cboBatchCode);
 
             dgvBatches = BuildStyledGrid();
             dgvBatches.Dock = DockStyle.Fill;
 
-            // Bọc grid để có padding bên trong
             var gridWrapper = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10, 38, 10, 8)
+                Padding = new Padding(10, 0, 10, 10)
             };
             gridWrapper.Controls.Add(dgvBatches);
 
             pnlBatchGrid.Controls.Add(gridWrapper);
-            pnlBatchGrid.Controls.Add(lblGrid);
+            pnlBatchGrid.Controls.Add(gridHeader);
 
             // ── Add vào pnlContent (Dock.Top stack từ dưới lên) ──
             pnlContent.Controls.Add(pnlBatchGrid);
@@ -329,25 +412,36 @@ namespace PigFarm.WinForms
         // ── Resize KPI cards đều nhau ─────────────────────────────
         private void ResizeKpiCards()
         {
-            int total = pnlContent.ClientSize.Width - pnlContent.Padding.Horizontal;
+            if (pnlKpiCards == null || pnlKpiCards.Controls.Count == 0) return;
+
             int count = pnlKpiCards.Controls.Count;
             int gap = 10;
-            int cardW = (total - gap * (count - 1)) / count;
-            cardW = Math.Max(cardW, 120);
+            int total = pnlKpiCards.ClientSize.Width;
+
+            int columns = 6;
+            if (total < 1100) columns = 3;
+            if (total < 700) columns = 2;
+
+            int cardW = Math.Max(150, (total - gap * (columns - 1)) / columns);
 
             foreach (Control c in pnlKpiCards.Controls)
             {
-                c.Size = new Size(cardW, 105);
-                c.Margin = new Padding(0, 0, gap, 0);
+                c.Size = new Size(cardW, 140);
+                c.Margin = new Padding(0, 0, gap, gap);
             }
 
-            // Chiều cao FlowPanel = card height + top/bottom padding
-            pnlKpiCards.Height = 118;
+            int rows = (int)Math.Ceiling(count / (double)columns);
+            pnlKpiCards.Height = rows * 150;
         }
 
         // ════════════════════════════════════════════════════════
         // DATA LOADING
         // ════════════════════════════════════════════════════════
+        private void CboBatchCode_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            currentBatchCode = cboBatchCode.SelectedItem?.ToString() ?? "All";
+            LoadDashboard();
+        }
         private void LoadDashboard()
         {
             try
@@ -361,7 +455,32 @@ namespace PigFarm.WinForms
                 cardAdg.SetValue(s.AvgAdg > 0 ? s.AvgAdg.ToString("N0") : "—");
                 cardMortality.SetValue(s.MortalityPct.ToString("F2"));
 
-                var kpis = KpiService.GetAllKpi("Active");
+                var allKpis = KpiService.GetAllKpi(currentBatchStatus);
+
+                if (cboBatchCode != null)
+                {
+                    var currentSelected = cboBatchCode.SelectedItem?.ToString() ?? currentBatchCode;
+
+                    cboBatchCode.SelectedIndexChanged -= CboBatchCode_SelectedIndexChanged;
+                    cboBatchCode.Items.Clear();
+                    cboBatchCode.Items.Add("All");
+
+                    foreach (var b in allKpis.Select(x => x.BatchCode).Distinct())
+                        cboBatchCode.Items.Add(b);
+
+                    if (cboBatchCode.Items.Contains(currentSelected))
+                        cboBatchCode.SelectedItem = currentSelected;
+                    else
+                        cboBatchCode.SelectedItem = "All";
+
+                    currentBatchCode = cboBatchCode.SelectedItem?.ToString() ?? "All";
+                    cboBatchCode.SelectedIndexChanged += CboBatchCode_SelectedIndexChanged;
+                }
+
+                var kpis = currentBatchCode == "All"
+                    ? allKpis
+                    : allKpis.Where(x => x.BatchCode == currentBatchCode).ToList();
+
                 LoadBatchGrid(kpis);
 
                 // Feed chart
@@ -371,15 +490,24 @@ namespace PigFarm.WinForms
                     feedPoints.Add((r["Ngay"].ToString()!, Convert.ToDouble(r["TongCam"])));
                 chartFeed.SetData(feedPoints);
 
-                // Growth chart
+                // Growth chart đi theo filter Active / Closed / All trên Dashboard
                 if (kpis.Count > 0)
                 {
-                    var growthDt = KpiService.GetGrowthTrend(kpis[0].BatchID);
+                    var selectedBatch = kpis[0];
+
+                    var growthDt = KpiService.GetGrowthTrend(selectedBatch.BatchID);
                     var growthPts = new List<(string, double)>();
+
                     foreach (System.Data.DataRow r in growthDt.Rows)
                         growthPts.Add((r["Ngay"].ToString()!, Convert.ToDouble(r["TLTB"])));
+
                     chartGrowth.SetData(growthPts);
-                    chartGrowth.Title = $"📈 Tăng Trưởng — {kpis[0].BatchCode}";
+                    chartGrowth.Title = "📈 Tăng trưởng trọng lượng TB/con";
+                }
+                else
+                {
+                    chartGrowth.SetData(new List<(string, double)>());
+                    chartGrowth.Title = "📈 Tăng trưởng trọng lượng TB/con";
                 }
             }
             catch (Exception ex)
@@ -392,14 +520,18 @@ namespace PigFarm.WinForms
         private void LoadBatchGrid(System.Collections.Generic.List<BatchKpi> kpis)
         {
             dgvBatches.Rows.Clear();
+            int stt = 1;
+
             foreach (var k in kpis)
             {
+                var currentCount = k.Status == "Closed" ? 0 : k.CurrentCount;
                 int i = dgvBatches.Rows.Add(
+                    stt++,
                     k.BatchCode,
                     k.Barn,
                     k.ImportDate.ToString("dd/MM/yyyy"),
                     k.InitialCount,
-                    k.CurrentCount,
+                    currentCount,
                     k.LatestAvgWeight.ToString("F1"),
                     k.TotalFeedKg.ToString("N0"),
                     k.FCR.HasValue ? k.FCR.Value.ToString("F2") : "—",
@@ -410,10 +542,42 @@ namespace PigFarm.WinForms
 
                 var row = dgvBatches.Rows[i];
                 if (k.FCR.HasValue)
-                    row.Cells[7].Style.ForeColor = k.FCR.Value > 3.0m ? ColRed : ColGreen;
+                    row.Cells[8].Style.ForeColor = k.FCR.Value > 3.0m ? ColRed : ColGreen;
                 if (k.ADG_gPerDay.HasValue)
-                    row.Cells[8].Style.ForeColor = k.ADG_gPerDay.Value < 600 ? ColOrange : ColGreen;
+                    row.Cells[9].Style.ForeColor = k.ADG_gPerDay.Value < 600 ? ColOrange : ColGreen;
             }
+            var totalIn = kpis.Sum(x => x.InitialCount);
+            var totalCurrent = kpis.Sum(x => x.Status == "Closed" ? 0 : x.CurrentCount);
+            var totalFeed = kpis.Sum(x => x.TotalFeedKg);
+
+            var avgFcr = kpis.Where(x => x.FCR.HasValue).Any()
+                ? kpis.Where(x => x.FCR.HasValue).Average(x => x.FCR!.Value)
+                : 0;
+
+            var avgAdg = kpis.Where(x => x.ADG_gPerDay.HasValue).Any()
+                ? kpis.Where(x => x.ADG_gPerDay.HasValue).Average(x => x.ADG_gPerDay!.Value)
+                : 0;
+            var avgMortality = kpis.Any() ? kpis.Average(x => x.MortalityPct) : 0;
+
+            // thêm dòng tổng
+            int rowIndex = dgvBatches.Rows.Add();
+
+            var totalRow = dgvBatches.Rows[rowIndex];
+
+            totalRow.DefaultCellStyle.BackColor = Color.FromArgb(230, 235, 245);
+            totalRow.DefaultCellStyle.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+
+            totalRow.Cells[1].Value = "TỔNG / TB";
+            totalRow.Cells[2].Value = $"{kpis.Count} băng";
+
+            totalRow.Cells[4].Value = totalIn;
+            totalRow.Cells[5].Value = totalCurrent;
+            totalRow.Cells[7].Value = totalFeed;
+
+            totalRow.Cells[8].Value = avgFcr.ToString("0.00");
+            totalRow.Cells[9].Value = avgAdg.ToString("0");
+
+            totalRow.Cells[10].Value = avgMortality.ToString("0.00") + "%";
         }
 
         // ════════════════════════════════════════════════════════
@@ -432,17 +596,22 @@ namespace PigFarm.WinForms
                 GridColor = Color.FromArgb(235, 235, 235),
                 Font = new Font("Segoe UI", 9f),
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                ColumnHeadersHeight = 34,
+                ColumnHeadersHeight = 42,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
-            grid.RowTemplate.Height = 28;
-
+            grid.RowTemplate.Height = 42;
+            grid.ColumnHeadersHeight = 42;
+            grid.Dock = DockStyle.Fill;
+            grid.ScrollBars = ScrollBars.Both;
+            grid.AllowUserToResizeColumns = true;
+            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
             {
                 BackColor = Color.FromArgb(245, 247, 250),
-                ForeColor = Color.FromArgb(80, 80, 80),
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Alignment = DataGridViewContentAlignment.MiddleCenter
+                ForeColor = Color.FromArgb(50, 50, 50),
+                Font = new Font("Segoe UI", 10f, FontStyle.Regular),
+                Alignment = DataGridViewContentAlignment.MiddleCenter,
+                WrapMode = DataGridViewTriState.False
             };
             grid.DefaultCellStyle = new DataGridViewCellStyle
             {
@@ -461,21 +630,31 @@ namespace PigFarm.WinForms
 
             var cols = new[]
             {
-                ("Mã Batch", 80), ("Chuồng", 70), ("Ngày Vào", 90),
+                ("STT", 45), ("Tên băng heo", 110), ("Chuồng", 80), ("Ngày Vào", 90),
                 ("SL Vào", 65),   ("SL Hiện Tại", 80), ("TL TB (kg)", 80),
-                ("Tổng Cám", 90), ("FCR", 60), ("ADG g/ngày", 85),
+                ("Tổng Cám", 90), ("FCR (kg cám/kg tăng)", 140), ("ADG (g/ngày)", 110),
                 ("Tỷ Lệ Chết", 85), ("Ngày Nuôi", 80), ("Status", 70)
             };
 
-            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             foreach (var (name, w) in cols)
-                grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                var col = new DataGridViewTextBoxColumn
                 {
                     HeaderText = name,
-                    Width = w,
-                    DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter }
-                });
+                    MinimumWidth = 60,
+                    FillWeight = w,
+                    DefaultCellStyle =
+        {
+            Alignment = DataGridViewContentAlignment.MiddleCenter
+        }
+                };
 
+                grid.Columns.Add(col);
+            }
+            grid.Columns[0].MinimumWidth = 50;
+            grid.Columns[0].FillWeight = 45;
+            grid.ScrollBars = ScrollBars.Both;
             return grid;
         }
 
@@ -525,29 +704,37 @@ namespace PigFarm.WinForms
             var lblTitle = new Label
             {
                 Text = title.ToUpper(),
-                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(130, 130, 130),
-                Location = new Point(14, 12),
-                AutoSize = true
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(110, 110, 110),
+                AutoSize = false,
+                Location = new Point(14, 10),
+                Size = new Size(300, 30),
+                TextAlign = ContentAlignment.MiddleLeft
             };
-            _lblValue = new Label
-            {
-                Text = value,
-                Font = new Font("Segoe UI", 22f, FontStyle.Bold),
-                ForeColor = accent,
-                Location = new Point(12, 30),
-                AutoSize = true
-            };
+
             var lblUnit = new Label
             {
                 Text = unit,
-                Font = new Font("Segoe UI", 7.5f),
+                Font = new Font("Segoe UI", 8f, FontStyle.Regular),
                 ForeColor = Color.Gray,
-                Location = new Point(14, 75),
-                AutoSize = true
+                AutoSize = false,
+                Location = new Point(14, 34),
+                Size = new Size(160, 30),
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
-            Controls.AddRange(new Control[] { lblTitle, _lblValue, lblUnit });
+            _lblValue = new Label
+            {
+                Text = value,
+                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                ForeColor = accent,
+                AutoSize = false,
+                Location = new Point(14, 58),
+                Size = new Size(160, 60),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            Controls.AddRange(new Control[] { lblTitle, lblUnit, _lblValue });
             Paint += OnPaint;
         }
 
@@ -630,6 +817,8 @@ namespace PigFarm.WinForms
         public string Title { get; set; }
         private List<(string label, double value)> _data = new();
         private readonly Color _lineColor;
+        private readonly ToolTip _tip = new ToolTip();
+        private List<(RectangleF hit, string label, double value)> _hitPoints = new();
 
         public ChartPanel(string title, Color lineColor)
         {
@@ -637,6 +826,7 @@ namespace PigFarm.WinForms
             _lineColor = lineColor;
             BackColor = Color.White;
             Paint += OnPaint;
+            MouseMove += OnMouseMove;
             SetDoubleBuffered(true);
         }
 
@@ -706,5 +896,23 @@ namespace PigFarm.WinForms
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.NonPublic |
                 System.Reflection.BindingFlags.Instance)?.SetValue(this, v);
+        private void OnMouseMove(object? sender, MouseEventArgs e)
+        {
+            foreach (var p in _hitPoints)
+            {
+                if (p.hit.Contains(e.Location))
+                {
+                    string label = p.label;
+
+                    if (DateTime.TryParse(label, out var d))
+                        label = d.ToString("dd/MM/yyyy");
+
+                    _tip.SetToolTip(this, $"{label}: {p.value:N1} kg");
+                    return;
+                }
+            }
+
+            _tip.SetToolTip(this, "");
+        }
     }
 }
