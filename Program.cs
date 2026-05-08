@@ -8,6 +8,8 @@ namespace PigFarm.WinForms
         [STAThread]
         static void Main()
         {
+            // Phải gọi TRƯỚC ApplicationConfiguration.Initialize()
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
             ApplicationConfiguration.Initialize();
             Application.Run(new MainForm());
         }

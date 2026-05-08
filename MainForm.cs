@@ -9,7 +9,7 @@ namespace PigFarm.WinForms
 {
     public partial class MainForm : Form
     {
-        // ── KPI card panels ──────────────────────────────────────
+        // ── KPI cards ────────────────────────────────────────────
         private KpiCard cardBatches = null!;
         private KpiCard cardPigs = null!;
         private KpiCard cardFeed = null!;
@@ -17,7 +17,7 @@ namespace PigFarm.WinForms
         private KpiCard cardAdg = null!;
         private KpiCard cardMortality = null!;
 
-        // ── Sidebar nav buttons ──────────────────────────────────
+        // ── Sidebar nav ──────────────────────────────────────────
         private NavButton navDashboard = null!;
         private NavButton navBatch = null!;
         private NavButton navFeed = null!;
@@ -25,27 +25,25 @@ namespace PigFarm.WinForms
         private NavButton navSnapshot = null!;
         private NavButton navKpi = null!;
 
-        // ── Content panels ───────────────────────────────────────
+        // ── Layout panels ────────────────────────────────────────
         private Panel pnlSidebar = null!;
         private Panel pnlTopBar = null!;
         private Panel pnlContent = null!;
-        private Panel pnlKpiCards = null!;
-        private Panel pnlCharts = null!;
+        private FlowLayoutPanel pnlKpiCards = null!;
+        private TableLayoutPanel pnlCharts = null!;
         private Panel pnlBatchGrid = null!;
 
-        // ── Grid ─────────────────────────────────────────────────
+        // ── Grid + Charts ────────────────────────────────────────
         private DataGridView dgvBatches = null!;
-
-        // ── Mini charts (owner-draw) ─────────────────────────────
         private ChartPanel chartFeed = null!;
         private ChartPanel chartGrowth = null!;
 
-        // ── Timer ────────────────────────────────────────────────
+        // ── Auto-refresh ─────────────────────────────────────────
         private System.Windows.Forms.Timer refreshTimer = null!;
 
-        // ── Colors ───────────────────────────────────────────────
+        // ── Color palette ────────────────────────────────────────
         internal static readonly Color ColSidebar = Color.FromArgb(28, 37, 54);
-        internal static readonly Color ColTopbar = Color.FromArgb(255, 255, 255);
+        internal static readonly Color ColTopbar = Color.White;
         internal static readonly Color ColBg = Color.FromArgb(243, 244, 248);
         internal static readonly Color ColAccent = Color.FromArgb(0, 122, 204);
         internal static readonly Color ColGreen = Color.FromArgb(39, 174, 96);
@@ -54,17 +52,26 @@ namespace PigFarm.WinForms
         internal static readonly Color ColPurple = Color.FromArgb(142, 68, 173);
         internal static readonly Color ColTeal = Color.FromArgb(26, 188, 156);
 
+        // ── Sidebar width at 96 DPI ──────────────────────────────
+        private const int SidebarBaseW = 200;
+
         public MainForm()
         {
             Text = "PigFarm Pro — Dashboard";
-            Size = new Size(1280, 780);
             MinimumSize = new Size(1024, 640);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = ColBg;
             Font = new Font("Segoe UI", 9f);
             DoubleBuffered = true;
+            // AutoScaleMode = Dpi → WinForms tự scale layout khi DPI thay đổi
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleDimensions = new SizeF(96f, 96f);
 
             BuildLayout();
+
+            // Set kích thước SAU khi layout xong để StartPosition hoạt động
+            ClientSize = new Size(1280, 780);
+
             LoadDashboard();
 
             refreshTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
@@ -73,43 +80,60 @@ namespace PigFarm.WinForms
         }
 
         // ════════════════════════════════════════════════════════
-        //  LAYOUT
+        // LAYOUT
         // ════════════════════════════════════════════════════════
         private void BuildLayout()
         {
+            // Thứ tự Add quan trọng: Sidebar → TopBar → Content
             BuildSidebar();
             BuildTopBar();
             BuildContentArea();
         }
 
+        // ── Sidebar ──────────────────────────────────────────────
         private void BuildSidebar()
         {
             pnlSidebar = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 200,
+                Width = SidebarBaseW,
                 BackColor = ColSidebar
             };
 
-            // Logo / title
             var lblLogo = new Label
             {
                 Text = "🐷 PigFarm Pro",
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                Bounds = new Rectangle(0, 20, 200, 45),
+                Dock = DockStyle.Top,
+                Height = 56,
                 TextAlign = ContentAlignment.MiddleCenter
             };
 
-            var sep = new Panel { Bounds = new Rectangle(20, 65, 160, 1), BackColor = Color.FromArgb(60, 80, 110) };
+            var sep = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 1,
+                BackColor = Color.FromArgb(60, 80, 110),
+                Margin = new Padding(20, 0, 20, 0)
+            };
 
-            int y = 80;
-            navDashboard = new NavButton("⊞  Dashboard", y); y += 46;
-            navBatch = new NavButton("☰  Batch", y); y += 46;
-            navFeed = new NavButton("🌾  Nhập Cám", y); y += 46;
-            navMovement = new NavButton("⇄  Biến Động", y); y += 46;
-            navSnapshot = new NavButton("⚖  Cân Đàn", y); y += 46;
-            navKpi = new NavButton("📊  KPI Report", y);
+            // Nav buttons dùng FlowLayout để tự stack theo DPI
+            var navFlow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 0)
+            };
+
+            navDashboard = new NavButton("⊞ Dashboard");
+            navBatch = new NavButton("☰ Batch");
+            navFeed = new NavButton("🌾 Nhập Cám");
+            navMovement = new NavButton("⇄ Biến Động");
+            navSnapshot = new NavButton("⚖ Cân Đàn");
+            navKpi = new NavButton("📊 KPI Report");
 
             navDashboard.Active = true;
 
@@ -120,36 +144,36 @@ namespace PigFarm.WinForms
             navSnapshot.Click += (s, e) => { SetNav(navSnapshot); new SnapshotForm().ShowDialog(); LoadDashboard(); };
             navKpi.Click += (s, e) => { SetNav(navKpi); new KpiForm().ShowDialog(); };
 
-            pnlSidebar.Controls.AddRange(new Control[]
-            {
-                lblLogo, sep,
-                navDashboard, navBatch, navFeed, navMovement, navSnapshot, navKpi
-            });
+            navFlow.Controls.AddRange(new Control[]
+                { navDashboard, navBatch, navFeed, navMovement, navSnapshot, navKpi });
+
+            // Add theo thứ tự ngược (Dock.Top stack từ dưới lên)
+            pnlSidebar.Controls.Add(navFlow);
+            pnlSidebar.Controls.Add(sep);
+            pnlSidebar.Controls.Add(lblLogo);
+
             Controls.Add(pnlSidebar);
         }
 
+        // ── TopBar ────────────────────────────────────────────────
         private void BuildTopBar()
         {
             pnlTopBar = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = 52,
-                BackColor = ColTopbar,
-                Padding = new Padding(0)
+                BackColor = ColTopbar
             };
-            // Shadow line
             pnlTopBar.Paint += (s, e) =>
-            {
                 e.Graphics.DrawLine(new Pen(Color.FromArgb(220, 220, 220)),
                     0, pnlTopBar.Height - 1, pnlTopBar.Width, pnlTopBar.Height - 1);
-            };
 
             var lblTitle = new Label
             {
                 Text = "Dashboard",
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(40, 40, 40),
-                Location = new Point(220, 12),
+                Location = new Point(16, 12),
                 AutoSize = true
             };
 
@@ -159,9 +183,8 @@ namespace PigFarm.WinForms
                 Text = DateTime.Now.ToString("dddd, dd/MM/yyyy HH:mm"),
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = Color.Gray,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(900, 17),
-                AutoSize = true
+                AutoSize = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
 
             var btnRefresh = new Button
@@ -171,42 +194,54 @@ namespace PigFarm.WinForms
                 BackColor = ColAccent,
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Size = new Size(100, 32),
-                Location = new Point(1140, 10),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Cursor = Cursors.Hand
             };
             btnRefresh.FlatAppearance.BorderSize = 0;
             btnRefresh.Click += (s, e) => LoadDashboard();
 
             pnlTopBar.Controls.AddRange(new Control[] { lblTitle, lblTime, btnRefresh });
+
+            // Căn phải responsive
+            pnlTopBar.Resize += (s, e) =>
+            {
+                btnRefresh.Location = new Point(pnlTopBar.Width - btnRefresh.Width - 16, 10);
+                lblTime.Location = new Point(btnRefresh.Left - lblTime.Width - 16, 18);
+            };
+
             Controls.Add(pnlTopBar);
 
             var clockTimer = new System.Windows.Forms.Timer { Interval = 30_000 };
             clockTimer.Tick += (s, e) =>
             {
-                var lbl = pnlTopBar.Controls["lblTime"] as Label;
-                if (lbl != null) lbl.Text = DateTime.Now.ToString("dddd, dd/MM/yyyy HH:mm");
+                if (pnlTopBar.Controls["lblTime"] is Label lbl)
+                    lbl.Text = DateTime.Now.ToString("dddd, dd/MM/yyyy HH:mm");
             };
             clockTimer.Start();
         }
 
+        // ── Content area ─────────────────────────────────────────
         private void BuildContentArea()
         {
             pnlContent = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = ColBg,
-                Padding = new Padding(20, 12, 20, 12),
+                Padding = new Padding(16, 12, 16, 12),
                 AutoScroll = true
             };
 
-            // KPI cards row
-            pnlKpiCards = new Panel
+            // ── 1. KPI Cards — FlowLayout tự wrap ─────────────────
+            pnlKpiCards = new FlowLayoutPanel
             {
-                Bounds = new Rectangle(0, 0, 1040, 110),
+                Dock = DockStyle.Top,
+                Height = 118,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
                 BackColor = Color.Transparent,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                Padding = new Padding(0),
+                AutoSize = false
             };
 
             cardBatches = new KpiCard("Batch Active", "--", "trang trại", ColAccent);
@@ -216,34 +251,44 @@ namespace PigFarm.WinForms
             cardAdg = new KpiCard("ADG Trung Bình", "--", "g/ngày", ColTeal);
             cardMortality = new KpiCard("Tỷ Lệ Chết", "--", "%", ColRed);
 
-            LayoutCards();
+            pnlKpiCards.Controls.AddRange(new Control[]
+                { cardBatches, cardPigs, cardFeed, cardFcr, cardAdg, cardMortality });
 
-            pnlContent.Controls.Add(pnlKpiCards);
+            // Resize cards đều nhau khi form thay đổi kích thước
+            pnlContent.Resize += (s, e) => ResizeKpiCards();
 
-            // Charts row
-            pnlCharts = new Panel
+            // ── 2. Spacer ──────────────────────────────────────────
+            var spacer1 = new Panel { Dock = DockStyle.Top, Height = 12, BackColor = Color.Transparent };
+
+            // ── 3. Charts — TableLayoutPanel 1 row 2 col ──────────
+            pnlCharts = new TableLayoutPanel
             {
-                Bounds = new Rectangle(0, 120, 1040, 200),
-                BackColor = Color.Transparent
+                Dock = DockStyle.Top,
+                Height = 200,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0),
+                CellBorderStyle = TableLayoutPanelCellBorderStyle.None
             };
+            pnlCharts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            pnlCharts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            pnlCharts.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            chartFeed = new ChartPanel("📈 Cám 30 Ngày Gần Nhất", ColOrange)
-            {
-                Bounds = new Rectangle(0, 0, 505, 195)
-            };
-            chartGrowth = new ChartPanel("📈 Tăng Trưởng Đàn (Batch Active nhất)", ColGreen)
-            {
-                Bounds = new Rectangle(515, 0, 505, 195)
-            };
+            chartFeed = new ChartPanel("📈 Cám 30 Ngày Gần Nhất", ColOrange) { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 6, 0) };
+            chartGrowth = new ChartPanel("📈 Tăng Trưởng Đàn (Batch Active nhất)", ColGreen) { Dock = DockStyle.Fill, Margin = new Padding(6, 0, 0, 0) };
 
-            pnlCharts.Controls.Add(chartFeed);
-            pnlCharts.Controls.Add(chartGrowth);
-            pnlContent.Controls.Add(pnlCharts);
+            pnlCharts.Controls.Add(chartFeed, 0, 0);
+            pnlCharts.Controls.Add(chartGrowth, 1, 0);
 
-            // Batch grid
+            // ── 4. Spacer ──────────────────────────────────────────
+            var spacer2 = new Panel { Dock = DockStyle.Top, Height = 12, BackColor = Color.Transparent };
+
+            // ── 5. Batch Grid ─────────────────────────────────────
             pnlBatchGrid = new Panel
             {
-                Bounds = new Rectangle(0, 330, 1040, 340),
+                Dock = DockStyle.Top,
+                Height = 340,
                 BackColor = Color.White
             };
             pnlBatchGrid.Paint += PaintCard;
@@ -258,87 +303,93 @@ namespace PigFarm.WinForms
             };
 
             dgvBatches = BuildStyledGrid();
-            dgvBatches.Bounds = new Rectangle(10, 38, 1020, 290);
+            dgvBatches.Dock = DockStyle.Fill;
 
+            // Bọc grid để có padding bên trong
+            var gridWrapper = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 38, 10, 8)
+            };
+            gridWrapper.Controls.Add(dgvBatches);
+
+            pnlBatchGrid.Controls.Add(gridWrapper);
             pnlBatchGrid.Controls.Add(lblGrid);
-            pnlBatchGrid.Controls.Add(dgvBatches);
+
+            // ── Add vào pnlContent (Dock.Top stack từ dưới lên) ──
             pnlContent.Controls.Add(pnlBatchGrid);
+            pnlContent.Controls.Add(spacer2);
+            pnlContent.Controls.Add(pnlCharts);
+            pnlContent.Controls.Add(spacer1);
+            pnlContent.Controls.Add(pnlKpiCards);
 
             Controls.Add(pnlContent);
-
-            // Resize handler
-            Resize += (s, e) => RelayoutOnResize();
         }
 
-        private void LayoutCards()
+        // ── Resize KPI cards đều nhau ─────────────────────────────
+        private void ResizeKpiCards()
         {
-            var cards = new[] { cardBatches, cardPigs, cardFeed, cardFcr, cardAdg, cardMortality };
-            pnlKpiCards.Controls.Clear();
-            int cardW = (pnlKpiCards.Width - 5 * 12) / 6;
-            for (int i = 0; i < cards.Length; i++)
+            int total = pnlContent.ClientSize.Width - pnlContent.Padding.Horizontal;
+            int count = pnlKpiCards.Controls.Count;
+            int gap = 10;
+            int cardW = (total - gap * (count - 1)) / count;
+            cardW = Math.Max(cardW, 120);
+
+            foreach (Control c in pnlKpiCards.Controls)
             {
-                cards[i].Bounds = new Rectangle(i * (cardW + 12), 0, cardW, 105);
-                pnlKpiCards.Controls.Add(cards[i]);
+                c.Size = new Size(cardW, 105);
+                c.Margin = new Padding(0, 0, gap, 0);
             }
-        }
 
-        private void RelayoutOnResize()
-        {
-            int w = pnlContent.ClientSize.Width - 40;
-            pnlKpiCards.Width = w;
-            LayoutCards();
-            pnlCharts.Width = w;
-            chartFeed.Width = (w - 10) / 2;
-            chartGrowth.Width = (w - 10) / 2;
-            chartGrowth.Left = chartFeed.Right + 10;
-            pnlBatchGrid.Width = w;
-            dgvBatches.Width = pnlBatchGrid.Width - 20;
+            // Chiều cao FlowPanel = card height + top/bottom padding
+            pnlKpiCards.Height = 118;
         }
 
         // ════════════════════════════════════════════════════════
-        //  DATA LOADING
+        // DATA LOADING
         // ════════════════════════════════════════════════════════
         private void LoadDashboard()
         {
             try
             {
-                var summary = KpiService.GetDashboardSummary();
-                cardBatches.SetValue(summary.ActiveBatches.ToString());
-                cardPigs.SetValue(summary.TotalActivePigs.ToString("N0"));
-                cardFeed.SetValue(summary.TotalFeedMonth.ToString("N0"));
-                cardFcr.SetValue(summary.AvgFcr > 0 ? summary.AvgFcr.ToString("F2") : "—");
-                cardAdg.SetValue(summary.AvgAdg > 0 ? summary.AvgAdg.ToString("N0") : "—");
-                cardMortality.SetValue(summary.MortalityPct.ToString("F2"));
+                var s = KpiService.GetDashboardSummary();
 
-                // Grid
+                cardBatches.SetValue(s.ActiveBatches.ToString());
+                cardPigs.SetValue(s.TotalActivePigs.ToString("N0"));
+                cardFeed.SetValue(s.TotalFeedMonth.ToString("N0"));
+                cardFcr.SetValue(s.AvgFcr > 0 ? s.AvgFcr.ToString("F2") : "—");
+                cardAdg.SetValue(s.AvgAdg > 0 ? s.AvgAdg.ToString("N0") : "—");
+                cardMortality.SetValue(s.MortalityPct.ToString("F2"));
+
                 var kpis = KpiService.GetAllKpi("Active");
                 LoadBatchGrid(kpis);
 
-                // Charts
+                // Feed chart
                 var feedTrend = KpiService.GetFeedTrend30Days();
-                var feedPoints = new List<(string label, double value)>();
+                var feedPoints = new List<(string, double)>();
                 foreach (System.Data.DataRow r in feedTrend.Rows)
                     feedPoints.Add((r["Ngay"].ToString()!, Convert.ToDouble(r["TongCam"])));
                 chartFeed.SetData(feedPoints);
 
+                // Growth chart
                 if (kpis.Count > 0)
                 {
                     var growthDt = KpiService.GetGrowthTrend(kpis[0].BatchID);
-                    var growthPoints = new List<(string label, double value)>();
+                    var growthPts = new List<(string, double)>();
                     foreach (System.Data.DataRow r in growthDt.Rows)
-                        growthPoints.Add((r["Ngay"].ToString()!, Convert.ToDouble(r["TLTB"])));
-                    chartGrowth.SetData(growthPoints);
+                        growthPts.Add((r["Ngay"].ToString()!, Convert.ToDouble(r["TLTB"])));
+                    chartGrowth.SetData(growthPts);
                     chartGrowth.Title = $"📈 Tăng Trưởng — {kpis[0].BatchCode}";
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Lỗi load dashboard:\n" + ex.Message, "Lỗi",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Lỗi load dashboard:\n" + ex.Message,
+                    "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void LoadBatchGrid(List<BatchKpi> kpis)
+        private void LoadBatchGrid(System.Collections.Generic.List<BatchKpi> kpis)
         {
             dgvBatches.Rows.Clear();
             foreach (var k in kpis)
@@ -355,21 +406,18 @@ namespace PigFarm.WinForms
                     k.ADG_gPerDay.HasValue ? k.ADG_gPerDay.Value.ToString("N0") : "—",
                     k.MortalityPct.ToString("F2") + "%",
                     k.DaysOnFeed,
-                    k.Status
-                );
+                    k.Status);
 
                 var row = dgvBatches.Rows[i];
-                // FCR color
                 if (k.FCR.HasValue)
                     row.Cells[7].Style.ForeColor = k.FCR.Value > 3.0m ? ColRed : ColGreen;
-                // ADG color
                 if (k.ADG_gPerDay.HasValue)
                     row.Cells[8].Style.ForeColor = k.ADG_gPerDay.Value < 600 ? ColOrange : ColGreen;
             }
         }
 
         // ════════════════════════════════════════════════════════
-        //  HELPERS
+        // HELPERS
         // ════════════════════════════════════════════════════════
         private DataGridView BuildStyledGrid()
         {
@@ -385,9 +433,9 @@ namespace PigFarm.WinForms
                 Font = new Font("Segoe UI", 9f),
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ColumnHeadersHeight = 34,
-                RowTemplate = { Height = 28 },
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
+            grid.RowTemplate.Height = 28;
 
             grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
             {
@@ -413,61 +461,58 @@ namespace PigFarm.WinForms
 
             var cols = new[]
             {
-                ("Mã Batch",    80),  ("Chuồng",     70),
-                ("Ngày Vào",    90),  ("SL Vào",     65),
-                ("SL Hiện Tại", 80),  ("TL TB (kg)", 80),
-                ("Tổng Cám",    90),  ("FCR",        60),
-                ("ADG g/ngày",  85),  ("Tỷ Lệ Chết", 85),
-                ("Ngày Nuôi",   80),  ("Status",     70)
+                ("Mã Batch", 80), ("Chuồng", 70), ("Ngày Vào", 90),
+                ("SL Vào", 65),   ("SL Hiện Tại", 80), ("TL TB (kg)", 80),
+                ("Tổng Cám", 90), ("FCR", 60), ("ADG g/ngày", 85),
+                ("Tỷ Lệ Chết", 85), ("Ngày Nuôi", 80), ("Status", 70)
             };
+
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             foreach (var (name, w) in cols)
-            {
                 grid.Columns.Add(new DataGridViewTextBoxColumn
                 {
                     HeaderText = name,
                     Width = w,
                     DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter }
                 });
-            }
+
             return grid;
         }
 
         private void SetNav(NavButton active)
         {
             foreach (Control c in pnlSidebar.Controls)
-                if (c is NavButton nb) nb.Active = (nb == active);
+                if (c is FlowLayoutPanel flp)
+                    foreach (Control nb in flp.Controls)
+                        if (nb is NavButton btn) btn.Active = (btn == active);
         }
 
-        private static void PaintCard(object? sender, System.Windows.Forms.PaintEventArgs e)
+        internal static void PaintCard(object? sender, PaintEventArgs e)
         {
             if (sender is not Panel p) return;
-            var g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             using var pen = new Pen(Color.FromArgb(220, 220, 225));
-            var rect = new Rectangle(0, 0, p.Width - 1, p.Height - 1);
-            DrawRoundRect(g, pen, rect, 8);
+            DrawRoundRect(e.Graphics, pen, new Rectangle(0, 0, p.Width - 1, p.Height - 1), 8);
         }
 
-        internal static void DrawRoundRect(Graphics g, Pen pen, Rectangle rect, int radius)
+        internal static void DrawRoundRect(Graphics g, Pen pen, Rectangle rect, int r)
         {
-            using var path = new System.Drawing.Drawing2D.GraphicsPath();
-            path.AddArc(rect.X, rect.Y, radius * 2, radius * 2, 180, 90);
-            path.AddArc(rect.Right - radius * 2, rect.Y, radius * 2, radius * 2, 270, 90);
-            path.AddArc(rect.Right - radius * 2, rect.Bottom - radius * 2, radius * 2, radius * 2, 0, 90);
-            path.AddArc(rect.X, rect.Bottom - radius * 2, radius * 2, radius * 2, 90, 90);
+            using var path = new GraphicsPath();
+            path.AddArc(rect.X, rect.Y, r * 2, r * 2, 180, 90);
+            path.AddArc(rect.Right - r * 2, rect.Y, r * 2, r * 2, 270, 90);
+            path.AddArc(rect.Right - r * 2, rect.Bottom - r * 2, r * 2, r * 2, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - r * 2, r * 2, r * 2, 90, 90);
             path.CloseFigure();
             g.DrawPath(pen, path);
         }
     }
 
     // ════════════════════════════════════════════════════════════
-    //  KpiCard control
+    // KpiCard
     // ════════════════════════════════════════════════════════════
     internal class KpiCard : Panel
     {
         private readonly Label _lblValue;
-        private readonly Label _lblUnit;
         private readonly Color _accent;
 
         public KpiCard(string title, string value, string unit, Color accent)
@@ -475,7 +520,7 @@ namespace PigFarm.WinForms
             _accent = accent;
             BackColor = Color.White;
             Cursor = Cursors.Default;
-            DoubleBuffered_Set(true);
+            SetDoubleBuffered(true);
 
             var lblTitle = new Label
             {
@@ -485,7 +530,6 @@ namespace PigFarm.WinForms
                 Location = new Point(14, 12),
                 AutoSize = true
             };
-
             _lblValue = new Label
             {
                 Text = value,
@@ -494,8 +538,7 @@ namespace PigFarm.WinForms
                 Location = new Point(12, 30),
                 AutoSize = true
             };
-
-            _lblUnit = new Label
+            var lblUnit = new Label
             {
                 Text = unit,
                 Font = new Font("Segoe UI", 7.5f),
@@ -504,7 +547,7 @@ namespace PigFarm.WinForms
                 AutoSize = true
             };
 
-            Controls.AddRange(new Control[] { lblTitle, _lblValue, _lblUnit });
+            Controls.AddRange(new Control[] { lblTitle, _lblValue, lblUnit });
             Paint += OnPaint;
         }
 
@@ -514,41 +557,43 @@ namespace PigFarm.WinForms
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            // Left accent bar
-            using var brush = new SolidBrush(_accent);
-            g.FillRectangle(brush, new Rectangle(0, 0, 5, Height));
-            // Border
+            using var b = new SolidBrush(_accent);
+            g.FillRectangle(b, new Rectangle(0, 0, 5, Height));
             using var pen = new Pen(Color.FromArgb(230, 230, 235));
             MainForm.DrawRoundRect(g, pen, new Rectangle(0, 0, Width - 1, Height - 1), 6);
         }
 
-        private void DoubleBuffered_Set(bool value)
-        {
+        private void SetDoubleBuffered(bool v) =>
             typeof(Panel).GetProperty("DoubleBuffered",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                ?.SetValue(this, value);
-        }
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance)?.SetValue(this, v);
     }
 
     // ════════════════════════════════════════════════════════════
-    //  NavButton control
+    // NavButton
     // ════════════════════════════════════════════════════════════
     internal class NavButton : Panel
     {
         private bool _active;
         private readonly Label _lbl;
 
+        public new event EventHandler? Click;
+
         public bool Active
         {
             get => _active;
-            set { _active = value; Invalidate(); _lbl.ForeColor = value ? Color.White : Color.FromArgb(180, 190, 210); }
+            set
+            {
+                _active = value;
+                _lbl.ForeColor = value ? Color.White : Color.FromArgb(180, 190, 210);
+                Invalidate();
+            }
         }
 
-        public new event EventHandler? Click;
-
-        public NavButton(string text, int y)
+        public NavButton(string text)
         {
-            Bounds = new Rectangle(0, y, 200, 42);
+            // Kích thước cố định cho NavButton — WinForms AutoScaleMode=Dpi sẽ scale
+            Size = new Size(200, 42);
             BackColor = Color.Transparent;
             Cursor = Cursors.Hand;
 
@@ -557,7 +602,7 @@ namespace PigFarm.WinForms
                 Text = text,
                 Font = new Font("Segoe UI", 10f),
                 ForeColor = Color.FromArgb(180, 190, 210),
-                Bounds = new Rectangle(0, 0, 200, 42),
+                Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(18, 0, 0, 0)
             };
@@ -569,18 +614,16 @@ namespace PigFarm.WinForms
 
         private void OnPaint(object? sender, PaintEventArgs e)
         {
-            if (_active)
-            {
-                using var b = new SolidBrush(Color.FromArgb(50, 70, 100));
-                e.Graphics.FillRectangle(b, ClientRectangle);
-                using var accent = new SolidBrush(MainForm.ColAccent);
-                e.Graphics.FillRectangle(accent, new Rectangle(0, 0, 4, Height));
-            }
+            if (!_active) return;
+            using var b = new SolidBrush(Color.FromArgb(50, 70, 100));
+            e.Graphics.FillRectangle(b, ClientRectangle);
+            using var accent = new SolidBrush(MainForm.ColAccent);
+            e.Graphics.FillRectangle(accent, new Rectangle(0, 0, 4, Height));
         }
     }
 
     // ════════════════════════════════════════════════════════════
-    //  ChartPanel — simple line chart owner-draw
+    // ChartPanel — owner-draw line chart
     // ════════════════════════════════════════════════════════════
     internal class ChartPanel : Panel
     {
@@ -594,81 +637,74 @@ namespace PigFarm.WinForms
             _lineColor = lineColor;
             BackColor = Color.White;
             Paint += OnPaint;
-            DoubleBuffered_Set(true);
+            SetDoubleBuffered(true);
         }
 
-        public void SetData(List<(string, double)> data)
-        {
-            _data = data;
-            Invalidate();
-        }
+        public void SetData(List<(string, double)> data) { _data = data; Invalidate(); }
 
         private void OnPaint(object? sender, PaintEventArgs e)
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // Border
             using var borderPen = new Pen(Color.FromArgb(220, 220, 225));
             MainForm.DrawRoundRect(g, borderPen, new Rectangle(0, 0, Width - 1, Height - 1), 8);
 
-            // Title
-            using var titleFont = new Font("Segoe UI", 9f, FontStyle.Bold);
-            g.DrawString(Title, titleFont, Brushes.DimGray, new PointF(12, 10));
+            using var tf = new Font("Segoe UI", 9f, FontStyle.Bold);
+            g.DrawString(Title, tf, Brushes.DimGray, new PointF(12, 10));
 
-            if (_data.Count < 2) { g.DrawString("Chưa có dữ liệu", new Font("Segoe UI", 9f), Brushes.LightGray, new PointF(Width / 2f - 50, Height / 2f)); return; }
+            if (_data.Count < 2)
+            {
+                g.DrawString("Chưa có dữ liệu", new Font("Segoe UI", 9f),
+                    Brushes.LightGray, new PointF(Width / 2f - 50, Height / 2f));
+                return;
+            }
 
-            int padL = 50, padR = 20, padT = 35, padB = 30;
-            int chartW = Width - padL - padR;
-            int chartH = Height - padT - padB;
+            int pL = 50, pR = 20, pT = 35, pB = 30;
+            int cW = Width - pL - pR;
+            int cH = Height - pT - pB;
 
-            double maxVal = _data.Max(d => d.value);
-            double minVal = _data.Min(d => d.value);
-            if (maxVal == minVal) maxVal = minVal + 1;
+            double maxV = _data.Max(d => d.value);
+            double minV = _data.Min(d => d.value);
+            if (maxV == minV) maxV = minV + 1;
 
-            // Grid lines
             using var gridPen = new Pen(Color.FromArgb(240, 240, 240));
             for (int gi = 0; gi <= 4; gi++)
             {
-                int gy = padT + (int)(chartH * gi / 4.0);
-                g.DrawLine(gridPen, padL, gy, padL + chartW, gy);
-                double gVal = maxVal - (maxVal - minVal) * gi / 4.0;
-                g.DrawString(gVal.ToString("N0"), new Font("Segoe UI", 7f), Brushes.LightGray, new PointF(2, gy - 7));
+                int gy = pT + (int)(cH * gi / 4.0);
+                g.DrawLine(gridPen, pL, gy, pL + cW, gy);
+                double gVal = maxV - (maxV - minV) * gi / 4.0;
+                g.DrawString(gVal.ToString("N0"), new Font("Segoe UI", 7f),
+                    Brushes.LightGray, new PointF(2, gy - 7));
             }
 
-            // Line
-            var points = new PointF[_data.Count];
+            var pts = new PointF[_data.Count];
             for (int i = 0; i < _data.Count; i++)
             {
-                float px = padL + i * chartW / (float)(_data.Count - 1);
-                float py = padT + (float)((maxVal - _data[i].value) / (maxVal - minVal) * chartH);
-                points[i] = new PointF(px, py);
+                float px = pL + i * cW / (float)(_data.Count - 1);
+                float py = pT + (float)((maxV - _data[i].value) / (maxV - minV) * cH);
+                pts[i] = new PointF(px, py);
             }
 
-            using var linePen = new Pen(_lineColor, 2f) { LineJoin = LineJoin.Round };
-            g.DrawLines(linePen, points);
+            using var lp = new Pen(_lineColor, 2f) { LineJoin = LineJoin.Round };
+            g.DrawLines(lp, pts);
 
-            // Fill under line
-            var fillPath = new System.Drawing.Drawing2D.GraphicsPath();
-            fillPath.AddLines(points);
-            fillPath.AddLine(points[^1].X, padT + chartH, padL, padT + chartH);
-            fillPath.CloseFigure();
-            using var fillBrush = new LinearGradientBrush(
-                new PointF(0, padT), new PointF(0, padT + chartH),
+            var fp = new GraphicsPath();
+            fp.AddLines(pts);
+            fp.AddLine(pts[^1].X, pT + cH, pL, pT + cH);
+            fp.CloseFigure();
+            using var fb = new LinearGradientBrush(
+                new PointF(0, pT), new PointF(0, pT + cH),
                 Color.FromArgb(60, _lineColor), Color.FromArgb(5, _lineColor));
-            g.FillPath(fillBrush, fillPath);
+            g.FillPath(fb, fp);
 
-            // Dots
-            using var dotBrush = new SolidBrush(_lineColor);
-            foreach (var pt in points)
-                g.FillEllipse(dotBrush, pt.X - 3, pt.Y - 3, 6, 6);
+            using var db = new SolidBrush(_lineColor);
+            foreach (var pt in pts) g.FillEllipse(db, pt.X - 3, pt.Y - 3, 6, 6);
         }
 
-        private void DoubleBuffered_Set(bool v)
-        {
+        private void SetDoubleBuffered(bool v) =>
             typeof(Panel).GetProperty("DoubleBuffered",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                ?.SetValue(this, v);
-        }
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance)?.SetValue(this, v);
     }
 }
